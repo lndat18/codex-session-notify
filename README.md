@@ -1,11 +1,23 @@
 # Codex Session Notifications
 
+## Install with clicks / Cài đặt bằng chuột
+
+**English:** Download the ZIP from [the latest release](https://github.com/lndat18/codex-session-notify/releases/latest), extract it, double-click **Install.cmd**, and choose **Yes**. If you have several WSL distributions, select one. The installer sets up the WSL extension, notification service, Windows click handler, and optional Codex plugin registration automatically. It keeps a permanent copy, so you can delete the extracted download afterwards. Existing notification hooks require a separate Yes/No choice and are backed up.
+
+**Vietnamese:** Tải ZIP từ [bản phát hành mới nhất](https://github.com/lndat18/codex-session-notify/releases/latest), giải nén, bấm đúp **Install.cmd** và chọn **Yes**. Nếu có nhiều bản WSL, chọn bản muốn dùng. Bộ cài tự cài extension WSL, dịch vụ thông báo, xử lý click Windows và đăng ký plugin Codex nếu CLI hỗ trợ. Có thể xoá thư mục tải về sau khi cài. Nếu đã có cấu hình thông báo, bộ cài hỏi Yes/No trước khi sao lưu và thay thế.
+
+Máy cần có sẵn Windows + WSL, Python 3.11+, VS Code, Codex CLI và systemd trong WSL. Bộ cài áp dụng cho tất cả session được hỗ trợ của người dùng WSL đã chọn.
+
+Requires an existing Windows + WSL installation, Python 3.11+, VS Code, Codex CLI and WSL systemd. The wizard installs the VS Code WSL extension automatically; it does not provision Linux or Python. Applies to all supported sessions for the selected WSL user. Windows may ask you to allow a downloaded script. Only run installers you trust.
+
+
 Windows notifications for Codex CLI in VS Code + WSL. Click a notification to return to the original VS Code window and existing terminal.
 
 Thông báo Windows cho Codex CLI trong VS Code + WSL. Bấm thông báo để quay lại đúng cửa sổ VS Code và terminal đang chạy session đó.
 
 ## Table of Contents / Mục lục
 
+- [Install with clicks / Cài đặt bằng chuột](#install-with-clicks--cài-đặt-bằng-chuột)
 - [English](#english)
   - [Features](#features)
   - [Global installation scope](#global-installation-scope)

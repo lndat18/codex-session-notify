@@ -14,7 +14,7 @@ import sys
 import tomllib
 
 HERE = Path(__file__).resolve().parent
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 EXTENSION = 'local-wsl.codex-existing-terminal-focus'
 UNIT = 'codex-session-notify.service'
 CODEX = Path(os.environ.get('CODEX_HOME', Path.home() / '.codex')).resolve()
@@ -43,18 +43,21 @@ def ps_script(source, payload=None):
 
 
 def code_env():
-    binary = shutil.which('code')
-    if not binary:
-        raise ValueError('VS Code CLI is unavailable. Run inside a VS Code WSL terminal.')
+    servers = Path.home() / '.vscode-server'
+    binaries = list(servers.glob('bin/*/bin/remote-cli/code')) + list(servers.glob('cli/servers/*/server/bin/remote-cli/code'))
+    binaries.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    fallback = shutil.which('code')
+    if fallback:
+        binaries.append(Path(fallback))
     candidates = [os.environ.copy()]
     sockets = sorted(Path(f'/run/user/{os.getuid()}').glob('vscode-ipc-*.sock'), key=lambda p: p.stat().st_mtime, reverse=True)
-    for sock in sockets:
-        candidates.append({**os.environ, 'VSCODE_IPC_HOOK_CLI': str(sock)})
-    for env in candidates:
-        result = subprocess.run([binary, '--list-extensions'], env=env, capture_output=True, text=True, timeout=15)
-        if result.returncode == 0:
-            return binary, env, set(result.stdout.splitlines())
-    raise ValueError('No live VS Code connection. Open a VS Code WSL terminal and retry.')
+    candidates.extend({**os.environ, 'VSCODE_IPC_HOOK_CLI': str(sock)} for sock in sockets)
+    for binary in binaries:
+        for env in candidates:
+            result = subprocess.run([str(binary), '--list-extensions'], env=env, capture_output=True, text=True, timeout=15)
+            if result.returncode == 0:
+                return str(binary), env, set(result.stdout.splitlines())
+    raise ValueError('No live VS Code WSL connection. Open a WSL folder in VS Code and retry.')
 
 
 def setting(text, section, key, value):

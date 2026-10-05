@@ -24,11 +24,12 @@ def vsix():
 if __name__ == '__main__':
     extension = vsix()
     bundle = HERE.parents[1]
-    archive = bundle.parent / 'codex-session-notify-1.0.0.zip'
+    version = json.loads((HERE / 'plugin.json').read_text())['version']
+    archive = bundle.parent / f'codex-session-notify-{version}.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
         for f in sorted(bundle.rglob('*')):
             if f.is_file() and '__pycache__' not in f.parts and '.git' not in f.parts and f.suffix != '.pyc':
-                z.write(f, 'codex-session-notify-1.0.0/' + str(f.relative_to(bundle)))
+                z.write(f, f'codex-session-notify-{version}/' + str(f.relative_to(bundle)))
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     archive.with_suffix('.zip.sha256').write_text(f'{digest}  {archive.name}\n')
     print(extension)
