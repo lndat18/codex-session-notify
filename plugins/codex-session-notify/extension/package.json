@@ -1,0 +1,22 @@
+{
+  "name": "codex-existing-terminal-focus",
+  "displayName": "Codex Session Notifications",
+  "publisher": "local-wsl",
+  "version": "1.1.0",
+  "description": "Windows notifications that return to an existing Codex CLI terminal in VS Code + WSL.",
+  "engines": {
+    "vscode": "^1.96.2"
+  },
+  "main": "./extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  }
+}

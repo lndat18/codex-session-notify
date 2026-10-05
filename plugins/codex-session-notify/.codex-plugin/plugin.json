@@ -1,0 +1,11 @@
+{
+  "name": "codex-session-notify",
+  "version": "1.0.0",
+  "description": "Windows notifications that return to an existing Codex CLI terminal in VS Code + WSL.",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Session Notifications",
+    "shortDescription": "Notify when Codex finishes and return to the original terminal",
+    "category": "Productivity"
+  }
+}

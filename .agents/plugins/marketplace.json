@@ -1,0 +1,20 @@
+{
+  "name": "local-notifications",
+  "interface": {
+    "displayName": "Local Notification Plugins"
+  },
+  "plugins": [
+    {
+      "name": "codex-session-notify",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-session-notify"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
