@@ -8,14 +8,13 @@ Open a WSL terminal and paste one line / Mở terminal WSL và dán một dòng:
 git clone https://github.com/lndat18/codex-session-notify.git && bash codex-session-notify/install.sh
 ```
 
-Answer **yes/no** for each part / Trả lời **yes/no** cho từng phần:
+**English:** The installer checks your environment, then asks only about notifications and the optional Codex management skill. Answer `yes` or `no`. Choosing notifications installs all required components together; if needed, it installs VS Code WSL support and opens the WSL folder automatically. An existing notification hook requires an additional Yes/No choice before backup and replacement.
 
-- **A:** Notifications and click back to the session / Thông báo và bấm về session. Required components are installed together: VS Code extension, Windows helper and background service.
-- **B:** Optional Codex maintenance skill / Skill Codex để kiểm tra, cập nhật và gỡ cài đặt (tuỳ chọn).
+**Tiếng Việt:** Bộ cài tự kiểm tra môi trường, rồi hỏi **“Cài thông báo Codex?”** và **“Thêm skill quản lý vào Codex?”**. Chỉ cần trả lời `yes` hoặc `no`. Khi đồng ý cài thông báo, bộ cài tự thiết lập mọi thành phần cần thiết; nếu cần, tự cài hỗ trợ WSL và mở VS Code WSL. Nếu có hook thông báo cũ, bộ cài hỏi riêng trước khi sao lưu và thay thế.
 
-If VS Code WSL is not connected, the installer offers to open it and install WSL support. Existing notification hooks require separate consent before replacement. WSL, Python 3.11+, systemd and Git must already be available. Git clone alone downloads files and cannot automatically execute their installer.
+Requires Windows + WSL, Git, Python 3.11+, VS Code, Codex CLI, WSL interop and a running systemd user session. Uses the default `~/.codex`. Missing prerequisites are reported before installation; the installer does not provision WSL, Python, VS Code or Codex CLI. Nothing is published to PyPI or npm.
 
-Nếu chưa kết nối VS Code WSL, bộ cài hỏi để mở VS Code và cài hỗ trợ WSL. Hook thông báo cũ chỉ được thay sau khi bạn đồng ý. Máy cần có sẵn WSL, Python 3.11+, systemd và Git. Chỉ riêng `git clone` không thể tự chạy mã cài đặt.
+Máy cần có sẵn Windows + WSL, Git, Python 3.11+, VS Code, Codex CLI, WSL interop và systemd user hoạt động. Dùng `~/.codex` mặc định. Nếu thiếu điều kiện, bộ cài báo trước khi cài. Gói được phân phối trực tiếp trên GitHub, không cần PyPI hay npm.
 
 Already cloned / Đã clone trước đó:
 
@@ -23,6 +22,15 @@ Already cloned / Đã clone trước đó:
 bash codex-session-notify/install.sh
 ```
 
+Update from inside the cloned repository / Cập nhật từ thư mục repo đã clone:
+
+```bash
+git pull --ff-only && bash install.sh
+```
+
+The installer keeps a permanent source copy under `~/.local/share/codex-session-notify`; you can remove the downloaded clone after installation. Git clone alone downloads files and does not execute installers.
+
+Bộ cài lưu một bản nguồn lâu dài tại `~/.local/share/codex-session-notify`; có thể xoá thư mục tải về sau khi cài. Riêng `git clone` không tự chạy bộ cài.
 
 ## Install with clicks / Cài đặt bằng chuột
 
@@ -98,26 +106,9 @@ You do not need to install it again for each session, invoke the skill before ev
 
 ### Installation
 
-Clone into a persistent location, then open a **VS Code WSL terminal**:
+Use the [one-line terminal installer](#terminal-install--cài-từ-terminal). It checks prerequisites, asks for notifications, sets up their required components, and offers the optional Codex management skill.
 
-```bash
-git clone https://github.com/lndat18/codex-session-notify.git ~/.local/share/codex-session-notify
-cd ~/.local/share/codex-session-notify
-python3 plugins/codex-session-notify/install.py install
-```
-
-Alternatively, download the ZIP from [Releases](https://github.com/lndat18/codex-session-notify/releases), extract it into a persistent directory, and run the same installer from the extracted root.
-
-To also install the Codex skill for future installation, inspection and repair requests:
-
-```bash
-codex plugin marketplace add .
-codex plugin add codex-session-notify@local-notifications
-```
-
-The installer detects the Windows account, WSL distribution and live VS Code connection. It backs up the installation and changes only the notification settings it owns. If a separate `notify` hook exists, installation stops; use `install --replace-notify` only if you intend to replace that hook.
-
-If terminal window records do not appear after installation, run **Developer: Reload Window** once in each VS Code WSL window.
+An existing notification hook is replaced only after a separate confirmation and backup. If terminal records do not appear after installation, run **Developer: Reload Window** once in the affected VS Code WSL window.
 
 ### Usage and maintenance
 
@@ -188,26 +179,9 @@ Bạn không cần cài lại cho mỗi session, gọi skill trước mỗi cu�
 
 ### Cài đặt
 
-Clone vào vị trí lưu lâu dài, rồi mở **terminal WSL trong VS Code**:
+Dùng [bộ cài một dòng từ terminal](#terminal-install--cài-từ-terminal). Bộ cài tự kiểm tra điều kiện, hỏi cài thông báo, tự thiết lập các thành phần cần thiết và hỏi thêm skill quản lý Codex.
 
-```bash
-git clone https://github.com/lndat18/codex-session-notify.git ~/.local/share/codex-session-notify
-cd ~/.local/share/codex-session-notify
-python3 plugins/codex-session-notify/install.py install
-```
-
-Hoặc tải ZIP tại [Releases](https://github.com/lndat18/codex-session-notify/releases), giải nén vào thư mục lưu lâu dài và chạy bộ cài từ thư mục gốc của gói.
-
-Để thêm skill Codex cho những lần yêu cầu cài đặt, kiểm tra hoặc sửa sau này:
-
-```bash
-codex plugin marketplace add .
-codex plugin add codex-session-notify@local-notifications
-```
-
-Bộ cài tự nhận diện tài khoản Windows, bản WSL và kết nối VS Code đang hoạt động. Bộ cài tạo bản sao lưu và chỉ sửa các cấu hình thông báo do nó quản lý. Nếu đã có `notify` hook riêng, bộ cài dừng; chỉ dùng `install --replace-notify` khi bạn muốn thay hook đó.
-
-Nếu chưa có bản ghi terminal sau khi cài, chạy **Developer: Reload Window** một lần trong mỗi cửa sổ VS Code WSL.
+Hook thông báo cũ chỉ được thay khi bạn đồng ý riêng và đã có bản sao lưu. Nếu chưa có bản ghi terminal, chạy **Developer: Reload Window** một lần trong cửa sổ VS Code WSL đó.
 
 ### Sử dụng và quản lý
 

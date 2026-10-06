@@ -1,4 +1,4 @@
-# Codex Session Notifications 1.1.1
+# Codex Session Notifications 1.2.1
 
 ## Terminal install / Cài từ terminal
 
@@ -8,14 +8,13 @@ Open a WSL terminal and paste one line / Mở terminal WSL và dán một dòng:
 git clone https://github.com/lndat18/codex-session-notify.git && bash codex-session-notify/install.sh
 ```
 
-Answer **yes/no** for each part / Trả lời **yes/no** cho từng phần:
+**English:** The installer checks your environment, then asks only about notifications and the optional Codex management skill. Answer `yes` or `no`. Choosing notifications installs all required components together; if needed, it installs VS Code WSL support and opens the WSL folder automatically. An existing notification hook requires an additional Yes/No choice before backup and replacement.
 
-- **A:** Notifications and click back to the session / Thông báo và bấm về session. Required components are installed together: VS Code extension, Windows helper and background service.
-- **B:** Optional Codex maintenance skill / Skill Codex để kiểm tra, cập nhật và gỡ cài đặt (tuỳ chọn).
+**Tiếng Việt:** Bộ cài tự kiểm tra môi trường, rồi hỏi **“Cài thông báo Codex?”** và **“Thêm skill quản lý vào Codex?”**. Chỉ cần trả lời `yes` hoặc `no`. Khi đồng ý cài thông báo, bộ cài tự thiết lập mọi thành phần cần thiết; nếu cần, tự cài hỗ trợ WSL và mở VS Code WSL. Nếu có hook thông báo cũ, bộ cài hỏi riêng trước khi sao lưu và thay thế.
 
-If VS Code WSL is not connected, the installer offers to open it and install WSL support. Existing notification hooks require separate consent before replacement. WSL, Python 3.11+, systemd and Git must already be available. Git clone alone downloads files and cannot automatically execute their installer.
+Requires Windows + WSL, Git, Python 3.11+, VS Code, Codex CLI, WSL interop and a running systemd user session. Uses the default `~/.codex`. Missing prerequisites are reported before installation; the installer does not provision WSL, Python, VS Code or Codex CLI. Nothing is published to PyPI or npm.
 
-Nếu chưa kết nối VS Code WSL, bộ cài hỏi để mở VS Code và cài hỗ trợ WSL. Hook thông báo cũ chỉ được thay sau khi bạn đồng ý. Máy cần có sẵn WSL, Python 3.11+, systemd và Git. Chỉ riêng `git clone` không thể tự chạy mã cài đặt.
+Máy cần có sẵn Windows + WSL, Git, Python 3.11+, VS Code, Codex CLI, WSL interop và systemd user hoạt động. Dùng `~/.codex` mặc định. Nếu thiếu điều kiện, bộ cài báo trước khi cài. Gói được phân phối trực tiếp trên GitHub, không cần PyPI hay npm.
 
 Already cloned / Đã clone trước đó:
 
@@ -23,6 +22,15 @@ Already cloned / Đã clone trước đó:
 bash codex-session-notify/install.sh
 ```
 
+Update from inside the cloned repository / Cập nhật từ thư mục repo đã clone:
+
+```bash
+git pull --ff-only && bash install.sh
+```
+
+The installer keeps a permanent source copy under `~/.local/share/codex-session-notify`; you can remove the downloaded clone after installation. Git clone alone downloads files and does not execute installers.
+
+Bộ cài lưu một bản nguồn lâu dài tại `~/.local/share/codex-session-notify`; có thể xoá thư mục tải về sau khi cài. Riêng `git clone` không tự chạy bộ cài.
 
 ## Install with clicks / Cài đặt bằng chuột
 
@@ -65,7 +73,7 @@ Install once for the current Windows account and WSL distribution. The backgroun
 
 ## Install and manage
 
-Requires Windows 10/11, Windows PowerShell, VS Code Remote WSL, Codex CLI, Python 3.11+, a working systemd user session, and the default `~/.codex` data directory. From a VS Code WSL terminal at the repository or extracted bundle root:
+Requires Windows 10/11, Windows PowerShell, VS Code Remote WSL, Codex CLI, Python 3.11+, a working systemd user session, and the default `~/.codex` data directory. For the usual installation, use the [one-line terminal installer](#terminal-install--cài-từ-terminal). The following commands are for manual maintenance from a VS Code WSL terminal:
 
 ```bash
 python3 plugins/codex-session-notify/install.py install
@@ -125,7 +133,7 @@ Cài một lần cho tài khoản Windows và bản WSL hiện tại, dùng cho 
 
 Cần Windows 10/11, WSL có systemd user, VS Code Remote WSL, Codex CLI và Python 3.11 trở lên. Bản 1.0 dùng thư mục Codex mặc định `~/.codex`.
 
-Giải nén gói ZIP, mở terminal **WSL trong VS Code** tại thư mục vừa giải nén và chạy:
+Cài mới bằng [một dòng trong terminal](#terminal-install--cài-từ-terminal). Lệnh dưới đây dành cho quản lý thủ công từ terminal **WSL trong VS Code**:
 
 ```bash
 python3 plugins/codex-session-notify/install.py install

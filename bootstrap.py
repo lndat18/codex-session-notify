@@ -25,6 +25,43 @@ def ask(message):
         print('Enter yes or no / Nhập yes hoặc no.')
 
 
+def find_codex():
+    binary = shutil.which('codex')
+    if binary:
+        return binary
+    candidates = sorted((Path.home() / '.nvm/versions/node').glob('*/bin/codex'),
+                        key=lambda p: p.stat().st_mtime, reverse=True)
+    return str(candidates[0]) if candidates else None
+
+
+def check_environment():
+    """Read prerequisites before asking to install or changing machine state."""
+    if not os.environ.get('WSL_DISTRO_NAME'):
+        raise ValueError('Open a WSL terminal / Mở terminal WSL để cài.')
+    configured_home = Path(os.environ.get('CODEX_HOME', Path.home() / '.codex')).resolve()
+    if configured_home != (Path.home() / '.codex').resolve():
+        raise ValueError('This installer requires the default ~/.codex / Bộ cài cần thư mục ~/.codex mặc định.')
+    source = Path(__file__).resolve().parent
+    sys.path.insert(0, str(source / 'plugins/codex-session-notify'))
+    from install import powershell, ps_script
+    powershell()
+    if not shutil.which('systemctl'):
+        raise ValueError('systemd is unavailable / Cần systemd trong WSL để chạy dịch vụ thông báo.')
+    systemd = subprocess.run(['systemctl', '--user', 'show-environment'],
+                             capture_output=True, text=True, timeout=15)
+    if systemd.returncode:
+        raise ValueError('WSL systemd user session is unavailable / Cần bật systemd trong WSL và khởi động lại WSL.')
+    if not find_codex():
+        raise ValueError('Codex CLI was not found / Cần cài Codex CLI trước.')
+    ps_script(r'''
+$ErrorActionPreference = 'Stop'
+$paths = @("$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe", "$env:ProgramFiles\Microsoft VS Code\Code.exe")
+$code = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $code) { throw 'Install VS Code first / Cần cài VS Code trước.' }
+if (-not (Test-Path (Join-Path (Split-Path $code) 'bin\code.cmd'))) { throw 'VS Code command line support is missing / Cần sửa hoặc cài lại VS Code.' }
+''')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check-hook', action='store_true')
@@ -39,18 +76,20 @@ def main():
     if not os.environ.get('WSL_DISTRO_NAME'):
         raise SystemExit('Run this installer in WSL / Mở terminal WSL để cài.')
     if args.interactive:
-        print('Codex Session Notifications — cài đặt từng phần')
-        print('A: Desktop notifications + click back to session. Includes the required VS Code extension, Windows helper and background service.')
-        print('A: Thông báo và bấm về session. Gồm extension VS Code, bộ xử lý Windows và dịch vụ nền cần thiết.')
-        install_runtime = ask('Install A / Cài phần A?')
+        print('Checking environment / Đang kiểm tra môi trường...', flush=True)
+        check_environment()
+        print('Environment ready / Môi trường đã sẵn sàng.')
+        print('Installs notifications and click back to your Codex session. Required components and VS Code WSL support are set up automatically.')
+        print('Cài thông báo và bấm về session Codex. Bộ cài tự thiết lập các thành phần cần thiết, có thể mở VS Code WSL.')
+        install_runtime = ask('Install Codex notifications / Cài thông báo Codex?')
         if install_runtime and existing_hook and not args.replace_notify:
             args.replace_notify = ask('Back up and replace the existing notification hook / Sao lưu và thay hook thông báo cũ?')
             if not args.replace_notify:
                 install_runtime = False
-                print('Skipped A / Bỏ qua phần A.')
+                print('Notifications skipped / Bỏ qua cài thông báo.')
     else:
         install_runtime = True
-    # A and B are offered in sequence; B can be installed even if A is skipped.
+    # The optional skill is offered after the notification installation.
     source = Path(__file__).resolve().parent
     destination = Path.home() / '.local/share/codex-session-notify'
 
@@ -68,8 +107,7 @@ def main():
             code_env()
         except (ValueError, OSError, subprocess.SubprocessError):
             if args.interactive:
-                if not ask('Open VS Code WSL and install its WSL support / Mở VS Code WSL và cài hỗ trợ WSL?'):
-                    raise SystemExit('A needs a live VS Code WSL connection / Phần A cần kết nối VS Code WSL.')
+                print('Preparing VS Code WSL / Đang chuẩn bị VS Code WSL...', flush=True)
                 ps_script(r'''
 $ErrorActionPreference = 'Stop'
 $data = [Console]::In.ReadToEnd() | ConvertFrom-Json
@@ -93,27 +131,25 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not install WSL support' }
         if args.replace_notify:
             command.append('--replace-notify')
         subprocess.run(command, check=True)
-        print('A installed / Đã cài phần A.')
+        print('Notifications installed / Đã cài thông báo.')
     if args.interactive:
-        print('B: Optional Codex maintenance skill / Skill Codex để kiểm tra, cập nhật và gỡ cài đặt (tuỳ chọn).')
-        if not ask('Install B / Cài phần B?'):
+        print('The optional skill lets Codex inspect, update and uninstall notifications.')
+        print('Skill tuỳ chọn giúp Codex kiểm tra, cập nhật và gỡ bộ thông báo.')
+        if not ask('Add the Codex management skill / Thêm skill quản lý vào Codex?'):
             print('Done / Hoàn tất.')
             return
     retain_source()
-    codex = shutil.which('codex')
+    codex = find_codex()
     if not codex:
-        candidates = sorted((Path.home() / '.nvm/versions/node').glob('*/bin/codex'), key=lambda p: p.stat().st_mtime, reverse=True)
-        codex = str(candidates[0]) if candidates else None
-    if not codex:
-        print('Skipped B: Codex CLI is unavailable / Bỏ qua B: chưa tìm thấy Codex CLI.')
+        print('Skill skipped: Codex CLI is unavailable / Bỏ qua skill: chưa tìm thấy Codex CLI.')
         return
     env = {**os.environ, 'PATH': str(Path(codex).parent) + os.pathsep + os.environ.get('PATH', '')}
     for arguments in (['plugin', 'marketplace', 'add', str(destination)],
                       ['plugin', 'add', 'codex-session-notify@local-notifications']):
         result = subprocess.run([codex, *arguments], env=env, timeout=60)
         if result.returncode:
-            raise SystemExit('B registration failed; any completed A installation is retained / Đăng ký B thất bại; phần A đã cài vẫn được giữ.')
-    print('B installed. Done / Đã cài phần B. Hoàn tất.')
+            raise SystemExit('Skill registration failed; installed notifications are retained / Đăng ký skill thất bại; thông báo đã cài vẫn được giữ.')
+    print('Skill installed. Done / Đã thêm skill. Hoàn tất.')
 
 
 if __name__ == '__main__':
