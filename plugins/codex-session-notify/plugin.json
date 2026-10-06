@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-session-notify",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Windows notifications that return to an existing Codex CLI terminal in VS Code + WSL."
 }

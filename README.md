@@ -50,6 +50,7 @@ Thông báo Windows cho Codex CLI trong VS Code + WSL. Bấm thông báo để q
 ## Table of Contents / Mục lục
 
 - [Reliability updates / Cập nhật độ tin cậy](#reliability-updates--cập-nhật-độ-tin-cậy-111)
+- [Existing skill / Skill đã cài](#existing-skill--skill-đã-cài)
 - [Terminal install / Cài từ terminal](#terminal-install--cài-từ-terminal)
 - [Install with clicks / Cài đặt bằng chuột](#install-with-clicks--cài-đặt-bằng-chuột)
 - [English](#english)
@@ -227,3 +228,15 @@ Xem [README của plugin](plugins/codex-session-notify/README.md) để biết v
 **Tiếng Việt:** Mỗi bản WSL/tài khoản có thư mục cài Windows riêng. Mỗi thông báo mới giữ cấu hình đích của chính nó; cài thêm WSL không ghi đè đích cũ. Tên thư mục được truyền bằng JSON UTF-8 mã hoá Base64. Bộ cài sao lưu file Windows, registry và shortcut trước khi thay đổi, tự khôi phục nếu bước sau thất bại. Không cho hai bộ cài chạy đồng thời. ZIP chỉ chứa danh sách file công khai được cho phép và VSIX được tạo.
 
 Upgrade each existing WSL installation to obtain these guarantees for new notifications. Old tickets continue using legacy routing when present. If Windows rollback fails, the installer reports the error and retains its backup and transaction lock; do not delete the lock until recovery is complete. Gỡ một bản WSL giữ bộ xử lý chung khi còn bản khác hoặc cấu hình legacy; log và backup vẫn được lưu.
+
+## Existing skill / Skill đã cài
+
+The installer reuses and updates a compatible local marketplace registration, preserving its catalog and other plugins. An unrelated marketplace with the same name is left intact; a dedicated installer catalog is used instead. Notification installation remains independent of skill registration.
+
+Bộ cài dùng lại và cập nhật marketplace local phù hợp đã có, giữ danh mục và các plugin khác. Nếu marketplace trùng tên thuộc nguồn khác, bộ cài giữ nguyên nguồn đó và dùng danh mục riêng.
+
+To finish a failed optional skill step without reinstalling notifications / Hoàn tất bước thêm skill bị lỗi mà không cài lại thông báo:
+
+```bash
+python3 bootstrap.py --skill-only
+```

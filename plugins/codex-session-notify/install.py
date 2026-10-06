@@ -16,7 +16,7 @@ import sys
 import tomllib
 
 HERE = Path(__file__).resolve().parent
-VERSION = '1.2.1'
+VERSION = '1.2.2'
 EXTENSION = 'local-wsl.codex-existing-terminal-focus'
 UNIT = 'codex-session-notify.service'
 CODEX = Path(os.environ.get('CODEX_HOME', Path.home() / '.codex')).resolve()

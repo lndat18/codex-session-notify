@@ -1,5 +1,6 @@
 """Interactive terminal installer and Windows wizard bridge."""
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -32,6 +33,76 @@ def find_codex():
     candidates = sorted((Path.home() / '.nvm/versions/node').glob('*/bin/codex'),
                         key=lambda p: p.stat().st_mtime, reverse=True)
     return str(candidates[0]) if candidates else None
+
+
+def register_skill(codex, destination, env):
+    """Reuse a compatible local source without removing other marketplaces."""
+    result = subprocess.run([codex, 'plugin', 'marketplace', 'list', '--json'],
+                            env=env, capture_output=True, text=True, check=True, timeout=60)
+    marketplaces = json.loads(result.stdout)['marketplaces']
+    marketplace_name = 'local-notifications'
+    existing = next((row for row in marketplaces if row['name'] == marketplace_name), None)
+    if existing:
+        root = Path(existing['root']).resolve()
+        catalog = root / '.agents/plugins/marketplace.json'
+        source_type = existing.get('marketplaceSource', {}).get('sourceType')
+        target = None
+        if source_type == 'local' and catalog.is_file():
+            data = json.loads(catalog.read_text())
+            for plugin in data.get('plugins', []):
+                source = plugin.get('source', {})
+                if plugin.get('name') != 'codex-session-notify' or source.get('source') != 'local':
+                    continue
+                candidate = (root / source['path']).resolve()
+                manifest = candidate / 'plugin.json'
+                if root not in candidate.parents or not manifest.is_file():
+                    continue
+                if json.loads(manifest.read_text()).get('name') == 'codex-session-notify':
+                    target = candidate
+                    break
+        if target is not None:
+            print('Updating the existing Codex skill / Đang cập nhật skill Codex đã có...', flush=True)
+            bundled = destination / 'plugins/codex-session-notify'
+            if target != bundled.resolve():
+                # Only update the owned plugin's public artifacts; leave its catalog intact.
+                sys.path.insert(0, str(bundled))
+                from build import PUBLIC_FILES, public_file
+                prefix = 'plugins/codex-session-notify/'
+                package = json.loads((bundled / 'extension/package.json').read_text())
+                files = [p for p in PUBLIC_FILES if p.startswith(prefix)]
+                files.append(prefix + f"dist/{package['name']}-{package['version']}.vsix")
+                for relative in files:
+                    saved = public_file(destination, relative)
+                    output = target / relative[len(prefix):]
+                    if output.is_symlink() or target not in output.resolve().parents:
+                        raise ValueError('Unsafe existing plugin path: ' + str(output))
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(saved, output)
+        else:
+            # A namesake may belong to another catalog. Use our own name instead.
+            marketplace_name = 'codex-session-notify-installer'
+            collision = next((row for row in marketplaces if row['name'] == marketplace_name), None)
+            if collision and Path(collision['root']).resolve() != destination.resolve():
+                raise ValueError('The installer marketplace name is used by another source; no existing source was removed.')
+            catalog = destination / '.agents/plugins/marketplace.json'
+            data = json.loads(catalog.read_text())
+            data['name'] = marketplace_name
+            catalog.write_text(json.dumps(data, indent=2) + '\n')
+            if not collision:
+                subprocess.run([codex, 'plugin', 'marketplace', 'add', str(destination)],
+                               env=env, check=True, timeout=60)
+    else:
+        # A retained source can already carry the dedicated fallback name.
+        catalog = json.loads((destination / '.agents/plugins/marketplace.json').read_text())
+        marketplace_name = catalog['name']
+        collision = next((row for row in marketplaces if row['name'] == marketplace_name), None)
+        if collision and Path(collision['root']).resolve() != destination.resolve():
+            raise ValueError('The installer marketplace is registered elsewhere; no source was removed.')
+        if not collision:
+            subprocess.run([codex, 'plugin', 'marketplace', 'add', str(destination)],
+                           env=env, check=True, timeout=60)
+    subprocess.run([codex, 'plugin', 'add', 'codex-session-notify@' + marketplace_name],
+                   env=env, check=True, timeout=60)
 
 
 def check_environment():
@@ -67,6 +138,7 @@ def main():
     parser.add_argument('--check-hook', action='store_true')
     parser.add_argument('--replace-notify', action='store_true')
     parser.add_argument('--interactive', action='store_true')
+    parser.add_argument('--skill-only', action='store_true', help='Install or repair the optional skill without reinstalling notifications')
     args = parser.parse_args()
     config = Path.home() / '.codex/config.toml'
     existing_hook = bool(config.exists() and tomllib.loads(config.read_text()).get('notify'))
@@ -75,7 +147,9 @@ def main():
         return
     if not os.environ.get('WSL_DISTRO_NAME'):
         raise SystemExit('Run this installer in WSL / Mở terminal WSL để cài.')
-    if args.interactive:
+    if args.skill_only:
+        install_runtime = False
+    elif args.interactive:
         print('Checking environment / Đang kiểm tra môi trường...', flush=True)
         check_environment()
         print('Environment ready / Môi trường đã sẵn sàng.')
@@ -144,11 +218,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not install WSL support' }
         print('Skill skipped: Codex CLI is unavailable / Bỏ qua skill: chưa tìm thấy Codex CLI.')
         return
     env = {**os.environ, 'PATH': str(Path(codex).parent) + os.pathsep + os.environ.get('PATH', '')}
-    for arguments in (['plugin', 'marketplace', 'add', str(destination)],
-                      ['plugin', 'add', 'codex-session-notify@local-notifications']):
-        result = subprocess.run([codex, *arguments], env=env, timeout=60)
-        if result.returncode:
-            raise SystemExit('Skill registration failed; installed notifications are retained / Đăng ký skill thất bại; thông báo đã cài vẫn được giữ.')
+    register_skill(codex, destination, env)
     print('Skill installed. Done / Đã thêm skill. Hoàn tất.')
 
 
