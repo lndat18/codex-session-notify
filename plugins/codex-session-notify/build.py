@@ -8,7 +8,7 @@ HERE = Path(__file__).resolve().parent
 
 # Exact public artifacts: unrelated files are never swept into a release.
 PUBLIC_FILES = (
-    'README.md', 'Install.cmd', 'Install.ps1', 'bootstrap.py',
+    'README.md', 'Install.cmd', 'Install.ps1', 'bootstrap.py', 'install.sh',
     '.agents/plugins/marketplace.json',
     'plugins/codex-session-notify/README.md',
     'plugins/codex-session-notify/plugin.json',

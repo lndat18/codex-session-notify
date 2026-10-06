@@ -1,5 +1,29 @@
 # Codex Session Notifications 1.1.1
 
+## Terminal install / Cài từ terminal
+
+Open a WSL terminal and paste one line / Mở terminal WSL và dán một dòng:
+
+```bash
+git clone https://github.com/lndat18/codex-session-notify.git && bash codex-session-notify/install.sh
+```
+
+Answer **yes/no** for each part / Trả lời **yes/no** cho từng phần:
+
+- **A:** Notifications and click back to the session / Thông báo và bấm về session. Required components are installed together: VS Code extension, Windows helper and background service.
+- **B:** Optional Codex maintenance skill / Skill Codex để kiểm tra, cập nhật và gỡ cài đặt (tuỳ chọn).
+
+If VS Code WSL is not connected, the installer offers to open it and install WSL support. Existing notification hooks require separate consent before replacement. WSL, Python 3.11+, systemd and Git must already be available. Git clone alone downloads files and cannot automatically execute their installer.
+
+Nếu chưa kết nối VS Code WSL, bộ cài hỏi để mở VS Code và cài hỗ trợ WSL. Hook thông báo cũ chỉ được thay sau khi bạn đồng ý. Máy cần có sẵn WSL, Python 3.11+, systemd và Git. Chỉ riêng `git clone` không thể tự chạy mã cài đặt.
+
+Already cloned / Đã clone trước đó:
+
+```bash
+bash codex-session-notify/install.sh
+```
+
+
 ## Install with clicks / Cài đặt bằng chuột
 
 **English:** Download the ZIP from [the latest release](https://github.com/lndat18/codex-session-notify/releases/latest), extract it, double-click **Install.cmd**, and choose **Yes**. If you have several WSL distributions, select one. The installer sets up the WSL extension, notification service, Windows click handler, and optional Codex plugin registration automatically. It keeps a permanent copy, so you can delete the extracted download afterwards. Existing notification hooks require a separate Yes/No choice and are backed up.
@@ -14,6 +38,7 @@ Requires an existing Windows + WSL installation, Python 3.11+, VS Code, Codex CL
 ## Table of Contents / Mục lục
 
 - [Reliability updates / Cập nhật độ tin cậy](#reliability-updates--cập-nhật-độ-tin-cậy-111)
+- [Terminal install / Cài từ terminal](#terminal-install--cài-từ-terminal)
 - [Install with clicks / Cài đặt bằng chuột](#install-with-clicks--cài-đặt-bằng-chuột)
 - [English](#english)
   - [Global scope](#global-scope)
