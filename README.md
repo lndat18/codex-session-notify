@@ -17,6 +17,7 @@ Thông báo Windows cho Codex CLI trong VS Code + WSL. Bấm thông báo để q
 
 ## Table of Contents / Mục lục
 
+- [Reliability updates / Cập nhật độ tin cậy](#reliability-updates--cập-nhật-độ-tin-cậy-111)
 - [Install with clicks / Cài đặt bằng chuột](#install-with-clicks--cài-đặt-bằng-chuột)
 - [English](#english)
   - [Features](#features)
@@ -219,3 +220,11 @@ Trong session Codex mới, gọi **`$codex-session-notify:session-notify`** đ�
 See [the plugin README](plugins/codex-session-notify/README.md) for component locations, logs, backup behavior and rebuilding the ZIP/VSIX.
 
 Xem [README của plugin](plugins/codex-session-notify/README.md) để biết vị trí thành phần, log, cách sao lưu và đóng gói lại ZIP/VSIX.
+
+## Reliability updates / Cập nhật độ tin cậy (1.1.1)
+
+**English:** Each WSL distro/user has its own Windows installation directory. Every new click ticket retains its originating bridge configuration; installing another distribution preserves earlier routing. Workspace names travel as UTF-8 JSON encoded with Base64. Installation snapshots owned Windows files, registrations and shortcut before changes, restoring them if a later step fails. Concurrent installs are refused until the transaction finishes. Releases include only explicitly listed public files and the generated VSIX.
+
+**Tiếng Việt:** Mỗi bản WSL/tài khoản có thư mục cài Windows riêng. Mỗi thông báo mới giữ cấu hình đích của chính nó; cài thêm WSL không ghi đè đích cũ. Tên thư mục được truyền bằng JSON UTF-8 mã hoá Base64. Bộ cài sao lưu file Windows, registry và shortcut trước khi thay đổi, tự khôi phục nếu bước sau thất bại. Không cho hai bộ cài chạy đồng thời. ZIP chỉ chứa danh sách file công khai được cho phép và VSIX được tạo.
+
+Upgrade each existing WSL installation to obtain these guarantees for new notifications. Old tickets continue using legacy routing when present. If Windows rollback fails, the installer reports the error and retains its backup and transaction lock; do not delete the lock until recovery is complete. Gỡ một bản WSL giữ bộ xử lý chung khi còn bản khác hoặc cấu hình legacy; log và backup vẫn được lưu.

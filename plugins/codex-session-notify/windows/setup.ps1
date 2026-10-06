@@ -2,24 +2,17 @@ $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $payload = [Console]::In.ReadToEnd() | ConvertFrom-Json
-$dir = Join-Path $env:LOCALAPPDATA 'CodexSessionNotify'
+$root = Join-Path $env:LOCALAPPDATA 'CodexSessionNotify'
+if ($payload.id -notmatch '^[0-9a-f]{64}$') { throw 'Invalid installation identity' }
+$dir = Join-Path $root ('installations\' + $payload.id)
 $null = New-Item -ItemType Directory -Force -Path $dir
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss-ffff'
-if (Test-Path (Join-Path $dir 'CodexFocus.exe')) {
-    $backup = Join-Path $dir ('backups\' + $stamp)
-    $null = New-Item -ItemType Directory -Force -Path $backup
-    foreach ($name in @('CodexFocus.exe','Focus.cs','toast.ps1','click-config.json','codex.png','codex.ico')) {
-        $original = Join-Path $dir $name
-        if (Test-Path $original) { Copy-Item $original (Join-Path $backup $name) }
-    }
-}
 foreach ($item in $payload.files.PSObject.Properties) {
     [IO.File]::WriteAllBytes((Join-Path $dir $item.Name), [Convert]::FromBase64String($item.Value))
 }
 $stage = Join-Path $dir 'CodexFocus.staged.exe'
 if (Test-Path $stage) { Remove-Item $stage }
 Add-Type -Path (Join-Path $dir 'Focus.cs') -ReferencedAssemblies 'System.dll','System.Core.dll','System.Web.Extensions.dll' -OutputAssembly $stage -OutputType WindowsApplication
-Move-Item $stage (Join-Path $dir 'CodexFocus.exe') -Force
+Move-Item $stage (Join-Path $root 'CodexFocus.exe') -Force
 [IO.File]::WriteAllText((Join-Path $dir 'click-config.json'), ($payload.config | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
 $protocol = 'HKCU:\Software\Classes\codex-session'
 $null = New-Item $protocol -Force
@@ -27,14 +20,15 @@ Set-Item $protocol 'URL:Codex session notification'
 $null = New-ItemProperty $protocol -Name 'URL Protocol' -Value '' -PropertyType String -Force
 $command = $protocol + '\shell\open\command'
 $null = New-Item $command -Force
-$focusExe = Join-Path $dir 'CodexFocus.exe'
+$focusExe = Join-Path $root 'CodexFocus.exe'
 Set-Item $command ('"' + $focusExe + '" "%1"')
 Add-Type -AssemblyName System.Drawing
 $bitmap = [Drawing.Bitmap]::new((Join-Path $dir 'codex.png'))
 $small = [Drawing.Bitmap]::new($bitmap, [Drawing.Size]::new(64,64))
 $hicon = $small.GetHicon()
 $icon = [Drawing.Icon]::FromHandle($hicon)
-$icoPath = Join-Path $dir 'codex.ico'
+$icoPath = Join-Path $root 'codex.ico'
+Copy-Item (Join-Path $dir 'codex.png') (Join-Path $root 'codex.png') -Force
 $stream = [IO.File]::Create($icoPath)
 try { $icon.Save($stream) } finally { $stream.Dispose(); $small.Dispose(); $bitmap.Dispose() }
 

@@ -66,10 +66,14 @@ $activation = ''
 if ($data.launch_uri) {
     if ($data.launch_uri -notmatch '^codex-session://focus/([0-9a-f-]{36})$') { throw 'Invalid focus URI' }
     $token = $Matches[1]
-    $focusExe = Join-Path $PSScriptRoot 'CodexFocus.exe'
+    $root = Join-Path $env:LOCALAPPDATA 'CodexSessionNotify'
+    $focusExe = Join-Path $root 'CodexFocus.exe'
+    $config = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'click-config.json') -Raw | ConvertFrom-Json
     $targetName = [string]$data.target_workspace_name
     if (-not $targetName) { $targetName = [string]$data.project }
-    $bound = Start-Process -FilePath $focusExe -ArgumentList @('--bind', $token, ('"' + $targetName + '"')) -WindowStyle Hidden -PassThru -Wait
+    $binding = @{workspace=$targetName; bridgeArguments=$config.bridgeArguments} | ConvertTo-Json -Compress
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($binding))
+    $bound = Start-Process -FilePath $focusExe -ArgumentList @('--bind-data', $token, $encoded) -WindowStyle Hidden -PassThru -Wait
     if ($bound.ExitCode -ne 0) { throw 'Could not bind the notification to the original VS Code window.' }
     $activation = " activationType='protocol' launch='$(Esc $data.launch_uri)'"
 }

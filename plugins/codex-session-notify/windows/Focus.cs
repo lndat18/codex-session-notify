@@ -48,11 +48,11 @@ public class CodexNativeFocus {
         if (list.Count != 1) throw new Exception("Cannot select native VS Code window: "+list.Count+" matches for "+workspace);
         return list[0];
     }
-    static void Bind(string token,string workspace) {
+    static void Bind(string token,string workspace,string bridgeArguments) {
         IntPtr hwnd=Find(workspace); uint pid; GetWindowThreadProcessId(hwnd,out pid);
         Directory.CreateDirectory(Path.GetDirectoryName(TicketPath(token)));
         File.WriteAllText(TicketPath(token),Json.Serialize(new { handle=hwnd.ToInt64(),pid=pid,
-            processStart=Process.GetProcessById((int)pid).StartTime.ToUniversalTime().Ticks,workspace=workspace }));
+            processStart=Process.GetProcessById((int)pid).StartTime.ToUniversalTime().Ticks,workspace=workspace,bridgeArguments=bridgeArguments }));
     }
     static IntPtr Bound(string token) {
         var row=Read(TicketPath(token)); IntPtr hwnd=new IntPtr(Convert.ToInt64(row["handle"]));
@@ -84,7 +84,13 @@ public class CodexNativeFocus {
     [STAThread]
     public static int Main(string[] args) {
         try {
-            if(args.Length==3 && args[0]=="--bind") { Bind(Guid.Parse(args[1]).ToString(),args[2]); return 0; }
+            if(args.Length==3 && args[0]=="--bind-data") {
+                var binding=Json.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(Convert.FromBase64String(args[2])));
+                Bind(Guid.Parse(args[1]).ToString(),binding["workspace"].ToString(),binding["bridgeArguments"].ToString()); return 0;
+            }
+            if(args.Length==3 && args[0]=="--bind") {
+                Bind(Guid.Parse(args[1]).ToString(),args[2],Read(Path.Combine(Root,"click-config.json"))["bridgeArguments"].ToString()); return 0;
+            }
             if(args.Length!=1) throw new Exception("Expected one notification URI");
             var match=Regex.Match(args[0],@"^codex-session://focus/([0-9a-f-]{36})/?$");
             if(!match.Success) throw new Exception("Invalid notification URI");
@@ -95,7 +101,8 @@ public class CodexNativeFocus {
                 Log("click-target",new{token=token,handle=hwnd.ToInt64(),title=Title(hwnd),maximized=maximized});
                 Focus(hwnd); // The user-launched GUI process activates the window immediately.
             }
-            var config=Read(Path.Combine(Root,"click-config.json"));
+            var config=File.Exists(TicketPath(token)) ? Read(TicketPath(token)) : Read(Path.Combine(Root,"click-config.json"));
+            if(!config.ContainsKey("bridgeArguments")) config=Read(Path.Combine(Root,"click-config.json"));
             string arguments=config["bridgeArguments"].ToString()+" "+token;
             Log("bridge-launch",new{arguments=arguments,user=Environment.UserName,is64=Environment.Is64BitProcess,root=Root});
             var start=new ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows),"System32","wsl.exe"),arguments);

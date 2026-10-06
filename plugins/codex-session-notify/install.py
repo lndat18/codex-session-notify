@@ -4,6 +4,8 @@ import argparse
 import base64
 import datetime
 import getpass
+import hashlib
+import uuid
 import json
 import os
 from pathlib import Path
@@ -14,7 +16,7 @@ import sys
 import tomllib
 
 HERE = Path(__file__).resolve().parent
-VERSION = '1.1.0'
+VERSION = '1.1.1'
 EXTENSION = 'local-wsl.codex-existing-terminal-focus'
 UNIT = 'codex-session-notify.service'
 CODEX = Path(os.environ.get('CODEX_HOME', Path.home() / '.codex')).resolve()
@@ -141,14 +143,20 @@ def install(args):
         shutil.copy2(CONFIG, backup / 'config.toml')
     if SERVICE.exists():
         shutil.copy2(SERVICE, backup / UNIT)
+    was_active = subprocess.run(['systemctl', '--user', 'is-active', '--quiet', UNIT]).returncode == 0
+    was_enabled = subprocess.run(['systemctl', '--user', 'is-enabled', '--quiet', UNIT], capture_output=True).returncode == 0
     previous_state = json.loads((ROOT / 'install-state.json').read_text()) if (ROOT / 'install-state.json').exists() else {}
     print('Backup:', backup, flush=True)
-    run(['systemctl', '--user', 'stop', UNIT], capture_output=True) if SERVICE.exists() else None
+    identity = hashlib.sha256((os.environ['WSL_DISTRO_NAME'] + '\0' + getpass.getuser()).encode()).hexdigest()
+    transaction = {'id': identity, 'transaction': str(uuid.uuid4())}
+    transaction_script = (HERE / 'windows/transaction.ps1').read_text()
+    ps_script(transaction_script, {**transaction, 'action': 'prepare'})
     try:
+        run(['systemctl', '--user', 'stop', UNIT], capture_output=True) if SERVICE.exists() else None
         ROOT.mkdir(parents=True, exist_ok=True)
         for name in ('notify.py', 'watcher.py', 'click.py'):
             shutil.copy2(HERE / 'runtime' / name, ROOT / name)
-        payload = {'files': {name: base64.b64encode((HERE / 'windows' / name).read_bytes()).decode()
+        payload = {'id': identity, 'files': {name: base64.b64encode((HERE / 'windows' / name).read_bytes()).decode()
                              for name in ('codex.png', 'toast.ps1', 'Focus.cs')},
                    'config': {'distro': os.environ['WSL_DISTRO_NAME'], 'user': getpass.getuser(),
                               'bridge': str(ROOT / 'click.py'),
@@ -169,18 +177,37 @@ def install(args):
                                                            'windows': windows}, indent=2))
         run(['systemctl', '--user', 'daemon-reload'])
         run(['systemctl', '--user', 'enable', '--now', UNIT])
+        ps_script(transaction_script, {**transaction, 'action': 'commit'})
     except Exception:
-        # Restore the Linux installation; Windows copies and registry remain in Windows backups.
-        if (backup / 'runtime').exists():
-            failed = backup / 'failed-runtime'
-            ROOT.rename(failed)
-            shutil.copytree(backup / 'runtime', ROOT)
-        if (backup / 'config.toml').exists():
-            shutil.copy2(backup / 'config.toml', CONFIG)
-        if (backup / UNIT).exists():
-            shutil.copy2(backup / UNIT, SERVICE)
-            subprocess.run(['systemctl', '--user', 'daemon-reload'], capture_output=True)
-            subprocess.run(['systemctl', '--user', 'start', UNIT], capture_output=True)
+        rollback_errors = []
+        try:
+            ps_script(transaction_script, {**transaction, 'action': 'rollback'})
+        except Exception as error:
+            rollback_errors.append('Windows rollback: ' + str(error))
+        try:
+            subprocess.run(['systemctl', '--user', 'disable', '--now', UNIT], capture_output=True)
+            if ROOT.exists():
+                ROOT.rename(backup / 'failed-runtime')
+            if (backup / 'runtime').exists():
+                shutil.copytree(backup / 'runtime', ROOT)
+            if (backup / 'config.toml').exists():
+                shutil.copy2(backup / 'config.toml', CONFIG)
+            else:
+                CONFIG.unlink(missing_ok=True)
+            if (backup / UNIT).exists():
+                shutil.copy2(backup / UNIT, SERVICE)
+            else:
+                SERVICE.unlink(missing_ok=True)
+            run(['systemctl', '--user', 'daemon-reload'])
+            if (backup / UNIT).exists():
+                if was_enabled:
+                    run(['systemctl', '--user', 'enable', UNIT])
+                if was_active:
+                    run(['systemctl', '--user', 'start', UNIT])
+        except Exception as error:
+            rollback_errors.append('Linux rollback: ' + str(error))
+        for error in rollback_errors:
+            print(error, file=sys.stderr)
         raise
     print('Installed Codex Session Notifications', VERSION)
     print('If no terminal window records appear, run Developer: Reload Window once in each VS Code WSL window.')
@@ -224,7 +251,7 @@ def uninstall(args):
     code, env, _ = code_env()
     run(['systemctl', '--user', 'disable', '--now', UNIT])
     run([code, '--uninstall-extension', EXTENSION], env=env)
-    ps_script((HERE / 'windows/uninstall.ps1').read_text())
+    ps_script((HERE / 'windows/uninstall.ps1').read_text(), {'id': hashlib.sha256((os.environ['WSL_DISTRO_NAME'] + '\0' + getpass.getuser()).encode()).hexdigest()})
     CONFIG.write_text(updated)
     SERVICE.unlink(missing_ok=True)
     run(['systemctl', '--user', 'daemon-reload'])
