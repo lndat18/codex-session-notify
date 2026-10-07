@@ -154,7 +154,7 @@ def install(args):
     try:
         run(['systemctl', '--user', 'stop', UNIT], capture_output=True) if SERVICE.exists() else None
         ROOT.mkdir(parents=True, exist_ok=True)
-        for name in ('notify.py', 'watcher.py', 'click.py'):
+        for name in ('notify.py', 'watcher.py', 'click.py', 'launch.py'):
             shutil.copy2(HERE / 'runtime' / name, ROOT / name)
         payload = {'id': identity, 'files': {name: base64.b64encode((HERE / 'windows' / name).read_bytes()).decode()
                              for name in ('codex.png', 'toast.ps1', 'Focus.cs')},
@@ -210,6 +210,7 @@ def install(args):
             print(error, file=sys.stderr)
         raise
     print('Installed Codex Session Notifications', VERSION)
+    print('For multiple terminals, launch with: python3 ' + str(ROOT / 'launch.py'))
     print('If no terminal window records appear, run Developer: Reload Window once in each VS Code WSL window.')
 
 

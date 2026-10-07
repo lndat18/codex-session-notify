@@ -246,3 +246,32 @@ python3 bootstrap.py --skill-only
 Suppression uses a fresh active terminal PID/start snapshot and verifies the actual foreground Windows window plus visible terminal. It does not require the extension focus flag to have updated first. Startup discovery and accessibility nodes receive a short bounded retry; ambiguous or unavailable identity continues to notify.
 
 Ẩn thông báo dựa trên bản ghi terminal đang hoạt động còn mới, đối chiếu cửa sổ Windows thực sự ở phía trước và terminal đang hiển thị. Không chờ cờ focus của extension cập nhật. Có thử lại ngắn khi terminal hoặc accessibility vừa khởi tạo; nếu không xác định được đích, thông báo vẫn được gửi.
+
+## Multiple terminals / Nhiều terminal
+
+To route notifications to the originating terminal even when several Codex CLI
+sessions share a project folder, use the isolated launcher in **every participating
+terminal** after installing this update:
+
+```bash
+python3 ~/.codex/session-notify/launch.py
+python3 ~/.codex/session-notify/launch.py resume SESSION_ID
+```
+
+The launcher uses `--no-daemon` and a per-invocation notification hook, so the
+hook's process ancestry identifies the originating terminal directly. Existing
+sessions must be exited and resumed with this launcher. It preserves the default
+Codex history directory and forwards CLI arguments. Remote server mode and a
+conflicting `notify` override are rejected. Use the launcher consistently for
+all CLI sessions sharing a project; mixed launch modes remain unsupported for
+ambiguous sessions. Closed terminals are not reopened.
+
+**Tiếng Việt:** Sau khi cập nhật, dùng lệnh trên ở mọi terminal chạy Codex cùng
+dự án. Mỗi CLI chạy riêng để xác định đúng terminal gốc. Session đang mở cần
+thoát rồi `resume` bằng launcher; lịch sử vẫn được giữ nguyên. Không hỗ trợ
+`--remote` trong chế độ này. Nếu trộn CLI thường và launcher trong cùng dự án,
+việc ghép session có thể vẫn mơ hồ.
+
+Verification: 15 automated routing/launcher tests pass. The release ZIP builds
+successfully. Real Windows toast activation for this mode still needs manual
+verification.

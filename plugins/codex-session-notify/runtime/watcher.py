@@ -2,6 +2,7 @@
 import concurrent.futures
 import json
 import os
+import sys
 from pathlib import Path
 import time
 
@@ -10,14 +11,35 @@ import notify
 SESSIONS = notify.ROOT.parent / 'sessions'
 
 
-def cli_lineage(cwd):
-    """Bind a unique interactive CLI in this project to its actual terminal ancestors.
+def session_evidence(process, rollout):
+    """Return exact live ownership evidence; never infer from a project name.
 
-    The daemon that writes the transcript is not the interactive TUI process.
-    Ambiguous clients fail open (notify rather than silently discard a completion).
+    An open transcript identifies current ownership. Launch arguments may be
+    stale after /resume, so they are not used. None means no evidence.
     """
+    transcripts = set()
+    try:
+        for fd in (process / 'fd').iterdir():
+            try:
+                target = Path(os.readlink(fd))
+                if target.name.startswith('rollout-') and target.suffix == '.jsonl':
+                    transcripts.add(target.resolve())
+            except OSError:
+                continue
+    except OSError:
+        pass
+    if transcripts:
+        return rollout.resolve() in transcripts and len(transcripts) == 1
+    # Arguments are historical and cannot prove the current session after an
+    # in-app /resume. They intentionally do not establish ownership by themselves.
+    return None
+
+
+def cli_lineage(cwd, sid=None, rollout=None, proc=Path('/proc')):
+    """Prefer exact transcript ownership, retaining unique-cwd compatibility."""
     matches = []
-    for path in Path('/proc').iterdir():
+    exact = []
+    for path in proc.iterdir():
         if not path.name.isdigit():
             continue
         try:
@@ -28,12 +50,21 @@ def cli_lineage(cwd):
                 continue
             if not os.readlink(path / 'fd' / '0').startswith('/dev/pts/'):
                 continue
-            if Path(os.readlink(path / 'cwd')).resolve() != Path(cwd).resolve():
-                continue
-            matches.append(int(path.name))
+            pid = int(path.name)
+            evidence = session_evidence(path, rollout) if rollout else None
+            if evidence is True:
+                exact.append(pid)
+            if Path(os.readlink(path / 'cwd')).resolve() == Path(cwd).resolve():
+                matches.append((pid, evidence))
         except (OSError, ValueError):
             continue
-    return notify.ancestors(matches[0]) if len(matches) == 1 else {}
+    if len(exact) == 1:
+        return notify.ancestors(exact[0])
+    if exact:
+        return {}
+    if len(matches) == 1 and matches[0][1] is not False:
+        return notify.ancestors(matches[0][0])
+    return {}
 
 
 def completion(meta, record):
@@ -94,9 +125,34 @@ class Tail:
         return events
 
 
-def send(event):
+def hooks_own_project(cwd, proc=Path('/proc')):
+    """Managed CLI hooks deliver directly; avoid watcher winning dedup first."""
+    owners = []
+    for process in proc.iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            if (process / 'comm').read_text().strip() != 'codex':
+                continue
+            args = (process / 'cmdline').read_bytes().split(b'\0')
+            if b'app-server' in args or b'exec' in args:
+                continue
+            if not os.readlink(process / 'fd' / '0').startswith('/dev/pts/'):
+                continue
+            if Path(os.readlink(process / 'cwd')).resolve() != Path(cwd).resolve():
+                continue
+            expected = 'notify=' + json.dumps([sys.executable, str(notify.ROOT / 'notify.py')])
+            owners.append(b'--no-daemon' in args and expected.encode() in args)
+        except (OSError, ValueError):
+            continue
+    return bool(owners) and all(owners)
+
+
+def send(event, rollout):
     try:
-        notify.deliver(event, lineage_provider=lambda: cli_lineage(event['cwd']), origin='watcher')
+        if hooks_own_project(event['cwd']):
+            return
+        notify.deliver(event, lineage_provider=lambda: cli_lineage(event['cwd'], event['thread-id'], rollout), origin='watcher')
     except Exception as error:
         notify.log('watcher-error', session_id=event.get('thread-id'), detail=str(error))
 
@@ -125,7 +181,7 @@ def main():
             for path, tail in list(tails.items()):
                 try:
                     for event in tail.poll():
-                        pool.submit(send, event)
+                        pool.submit(send, event, path)
                 except FileNotFoundError:
                     del tails[path]
                 except OSError as error:

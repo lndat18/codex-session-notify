@@ -21,6 +21,7 @@ PUBLIC_FILES = (
     'plugins/codex-session-notify/runtime/notify.py',
     'plugins/codex-session-notify/runtime/watcher.py',
     'plugins/codex-session-notify/runtime/click.py',
+    'plugins/codex-session-notify/runtime/launch.py',
     'plugins/codex-session-notify/windows/Focus.cs',
     'plugins/codex-session-notify/windows/setup.ps1',
     'plugins/codex-session-notify/windows/transaction.ps1',
