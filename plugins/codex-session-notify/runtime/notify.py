@@ -60,15 +60,21 @@ def ancestors(pid=None):
     return result
 
 
+def active_record(records, lineage, now):
+    """Select the fresh originating active terminal; Windows confirms foreground.
+
+    VS Code's focused flag can lag window activation, especially on startup.
+    It is a hint rather than the authority for desktop visibility.
+    """
+    matches = [r for r in records
+               if 0 <= now - r.get('timestamp', 0) < 3
+               and r.get('terminalPid') in lineage
+               and r.get('terminalStart') == lineage[r['terminalPid']]]
+    return matches[0] if len(matches) == 1 else None
+
+
 def watching(records, lineage, now):
-    # Fail open: missing, stale, or conflicting window state must not lose a notification.
-    focused = [r for r in records if r.get('focused') is True
-               and 0 <= now - r.get('timestamp', 0) < 3]
-    if len(focused) != 1:
-        return False
-    row = focused[0]
-    pid = row.get('terminalPid')
-    return pid in lineage and row.get('terminalStart') == lineage[pid]
+    return active_record(records, lineage, now) is not None
 
 
 def focus_records():
@@ -128,13 +134,27 @@ def main():
     deliver(data, test=test)
 
 
-def deliver(data, *, test=False, lineage=None, origin='notify'):
+def deliver(data, *, test=False, lineage=None, lineage_provider=None, origin='notify'):
     sid = str(data.get('thread-id') or 'unknown')
     turn_id = data.get('turn-id')
-    records = focus_records()
     lineage = ancestors() if lineage is None else lineage
-    candidate = not test and watching(records, lineage, time.time())
-    selected = next((r for r in records if r.get('focused') is True), {}) if candidate else {}
+    selected = None
+    # New terminals and the extension's first snapshot can arrive after completion.
+    # Keep the wait bounded and reread live state rather than using a stale row.
+    for attempt in range(6):
+        if lineage_provider is not None:
+            lineage = lineage_provider()
+        records = focus_records()
+        selected = active_record(records, lineage, time.time())
+        known = any(0 <= time.time() - row.get('timestamp', 0) < 3
+                    and any(t.get('pid') in lineage and t.get('start') == lineage[t['pid']]
+                            for t in row.get('terminals', [])) for row in records)
+        if test or selected is not None or (known and attempt >= 1):
+            break
+        if attempt < 5:
+            time.sleep(0.2)
+    candidate = not test and selected is not None
+    selected = selected or {}
     title = session_title(sid)
     project = Path(data.get('cwd') or '.').name
     payload = {
@@ -195,6 +215,7 @@ def deliver(data, *, test=False, lineage=None, origin='notify'):
             response = {'status': 'sent'}
         log(response.get('status', 'sent'), session_id=sid, turn_id=turn_id, origin=origin, title=payload['title'],
             reason=response.get('reason', 'Windows toast submitted'),
+            watch_candidate=candidate, terminal_pid=selected.get('terminalPid'),
             click_kind=ticket.get('kind') if ticket else None, launch_uri=payload.get('launch_uri'))
         if test:
             print(result.stdout.strip() or 'Test toast sent.')

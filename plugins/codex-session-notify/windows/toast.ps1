@@ -48,7 +48,16 @@ public static class CodexForeground {
             $suffix = [regex]::Escape(' - ' + $workspaceName) + '(?: \[WSL: [^\]]+\])? - Visual Studio Code(?: - Insiders)?$'
             if ($caption.ToString() -match $suffix) { $sameWorkspace = $true; break }
         }
-        if ($sameWorkspace -and (Test-CodexTerminalVisible $hwnd.ToInt64() $data.terminal_name)) {
+        $terminalVisible = $false
+        if ($sameWorkspace) {
+            # Accessibility nodes may be initialising on the first completion.
+            for ($attempt = 0; $attempt -lt 3; $attempt++) {
+                if ([CodexForeground]::GetForegroundWindow() -ne $hwnd) { break }
+                if (Test-CodexTerminalVisible $hwnd.ToInt64() $data.terminal_name) { $terminalVisible = $true; break }
+                if ($attempt -lt 2) { Start-Sleep -Milliseconds 150 }
+            }
+        }
+        if ($terminalVisible -and [CodexForeground]::GetForegroundWindow() -eq $hwnd) {
             @{ status = 'suppressed'; reason = 'matching terminal visible in focused VS Code window' } | ConvertTo-Json -Compress
             exit 0
         }

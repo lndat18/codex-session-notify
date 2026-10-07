@@ -1,4 +1,4 @@
-# Codex Session Notifications 1.2.2
+# Codex Session Notifications 1.2.3
 
 ## Terminal install / Cài từ terminal
 
@@ -218,3 +218,9 @@ To finish a failed optional skill step without reinstalling notifications / Hoà
 ```bash
 python3 bootstrap.py --skill-only
 ```
+
+### First completion visibility / Hiển thị câu trả lời đầu tiên
+
+Suppression uses a fresh active terminal PID/start snapshot and verifies the actual foreground Windows window plus visible terminal. It does not require the extension focus flag to have updated first. Startup discovery and accessibility nodes receive a short bounded retry; ambiguous or unavailable identity continues to notify.
+
+Ẩn thông báo dựa trên bản ghi terminal đang hoạt động còn mới, đối chiếu cửa sổ Windows thực sự ở phía trước và terminal đang hiển thị. Không chờ cờ focus của extension cập nhật. Có thử lại ngắn khi terminal hoặc accessibility vừa khởi tạo; nếu không xác định được đích, thông báo vẫn được gửi.

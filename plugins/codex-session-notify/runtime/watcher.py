@@ -96,7 +96,7 @@ class Tail:
 
 def send(event):
     try:
-        notify.deliver(event, lineage=cli_lineage(event['cwd']), origin='watcher')
+        notify.deliver(event, lineage_provider=lambda: cli_lineage(event['cwd']), origin='watcher')
     except Exception as error:
         notify.log('watcher-error', session_id=event.get('thread-id'), detail=str(error))
 
