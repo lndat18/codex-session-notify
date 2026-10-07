@@ -249,29 +249,32 @@ Suppression uses a fresh active terminal PID/start snapshot and verifies the act
 
 ## Multiple terminals / Nhiều terminal
 
-To route notifications to the originating terminal even when several Codex CLI
-sessions share a project folder, use the isolated launcher in **every participating
-terminal** after installing this update:
+The installer automatically adds an owned `codex` shell function to Bash and
+Zsh startup files. After installation, open a new terminal and use the normal
+commands:
 
 ```bash
-python3 ~/.codex/session-notify/launch.py
-python3 ~/.codex/session-notify/launch.py resume SESSION_ID
+codex
+codex resume
 ```
 
-The launcher uses `--no-daemon` and a per-invocation notification hook, so the
-hook's process ancestry identifies the originating terminal directly. Existing
-sessions must be exited and resumed with this launcher. It preserves the default
-Codex history directory and forwards CLI arguments. Remote server mode and a
-conflicting `notify` override are rejected. Use the launcher consistently for
-all CLI sessions sharing a project; mixed launch modes remain unsupported for
-ambiguous sessions. Closed terminals are not reopened.
+No manual launcher command is required. Existing terminal shells and already
+running Codex sessions keep their previous settings; reopen/resume them to use
+the update. New local interactive sessions use `--no-daemon` and a notification
+hook whose process ancestry identifies the original terminal. Administrative
+commands, noninteractive jobs, remote clients, and explicit notify overrides
+are passed through. Remote or overridden-hook sessions do not have this exact
+routing guarantee. Closed terminals are not reopened.
 
-**Tiếng Việt:** Sau khi cập nhật, dùng lệnh trên ở mọi terminal chạy Codex cùng
-dự án. Mỗi CLI chạy riêng để xác định đúng terminal gốc. Session đang mở cần
-thoát rồi `resume` bằng launcher; lịch sử vẫn được giữ nguyên. Không hỗ trợ
-`--remote` trong chế độ này. Nếu trộn CLI thường và launcher trong cùng dự án,
-việc ghép session có thể vẫn mơ hồ.
+The installer backs up shell configuration and rolls it back if installation
+fails. Reinstallation replaces only its marked block; uninstall removes that
+block. Existing unrelated `codex` shell functions are preserved by refusing a
+conflicting automatic integration.
 
-Verification: 15 automated routing/launcher tests pass. The release ZIP builds
-successfully. Real Windows toast activation for this mode still needs manual
-verification.
+**Tiếng Việt:** Chỉ cần cài bằng `bash install.sh`, sau đó mở terminal mới và gõ
+`codex` như bình thường ở mọi dự án. Không cần chạy `launch.py` nữa. Muốn tiếp tục
+session cũ, dùng `codex resume`. Terminal/session đang mở cần khởi động lại để
+nhận cấu hình mới.
+
+Verification: 19 automated tests pass. Windows click activation still requires
+manual end-to-end verification.

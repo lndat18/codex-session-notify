@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tomllib
@@ -112,6 +113,32 @@ def config_plan(original, replace_notify=False):
     return updated, saved, {'notify': [], 'notifications': notifications}
 
 
+SHELL_BEGIN = '# >>> codex-session-notify >>>'
+SHELL_END = '# <<< codex-session-notify <<<'
+
+
+def shell_config(text, shell, remove=False):
+    pattern = re.escape(SHELL_BEGIN) + r'\n.*?' + re.escape(SHELL_END) + r'(?:\n|$)'
+    stripped = re.sub(pattern, '', text, flags=re.S)
+    if remove:
+        return stripped
+    if re.search(r'(?m)^\s*(?:function\s+codex\b|codex\s*\(\s*\))', stripped):
+        raise ValueError('An existing codex shell function must be preserved; automatic integration cannot replace it.')
+    lookup = 'type -P codex' if shell == 'bash' else 'whence -p codex'
+    block = (SHELL_BEGIN + '\n'
+             'codex() {\n'
+             '  local codex_notify_binary\n'
+             '  codex_notify_binary="$(' + lookup + ')" || return\n'
+             '  if [ ! -f ' + shlex.quote(str(ROOT / 'launch.py')) + ' ]; then\n'
+             '    "$codex_notify_binary" "$@"\n'
+             '  else\n'
+             '    CODEX_NOTIFY_BINARY="$codex_notify_binary" ' + shlex.quote(sys.executable) + ' ' +
+             shlex.quote(str(ROOT / 'launch.py')) + ' --automatic "$@"\n'
+             '  fi\n'
+             '}\n' + SHELL_END + '\n')
+    return stripped + ('\n' if stripped and not stripped.endswith('\n') else '') + block
+
+
 def install(args):
     if not os.environ.get('WSL_DISTRO_NAME'):
         raise ValueError('This plugin requires Windows + WSL. Run inside a VS Code WSL terminal.')
@@ -119,11 +146,14 @@ def install(args):
         raise ValueError('Version 1.0 supports the default ~/.codex directory; custom CODEX_HOME requires extension configuration.')
     original = CONFIG.read_text() if CONFIG.exists() else ''
     updated, saved, applied = config_plan(original, args.replace_notify)
+    shell_files = {Path.home() / '.bashrc': 'bash', Path.home() / '.zshrc': 'zsh'}
+    shell_originals = {path: path.read_text() if path.exists() else None for path in shell_files}
+    shell_updates = {path: shell_config(shell_originals[path] or '', shell) for path, shell in shell_files.items()}
     interpreter = shutil.which('python3') or sys.executable
     plan = {'version': VERSION, 'runtime': str(ROOT), 'service': str(SERVICE), 'extension': EXTENSION,
             'distro': os.environ['WSL_DISTRO_NAME'], 'user': getpass.getuser(),
             'changes': ['backup installation', 'install VS Code extension', 'compile hidden Windows activation helper',
-                        'register click protocol and toast sender', 'update notification settings only', 'restart user service']}
+                        'register click protocol and toast sender', 'update notification settings only', 'restart user service', 'enable automatic codex routing in Bash and Zsh']}
     if args.dry_run:
         print(json.dumps(plan, ensure_ascii=False, indent=2))
         return
@@ -137,6 +167,9 @@ def install(args):
     stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
     backup = CODEX / 'session-notify-backups' / stamp
     backup.mkdir(parents=True, exist_ok=True)
+    for path, text in shell_originals.items():
+        if text is not None:
+            (backup / (path.name + '.before')).write_text(text)
     if ROOT.exists():
         shutil.copytree(ROOT, backup / 'runtime')
     if CONFIG.exists():
@@ -167,6 +200,8 @@ def install(args):
         (ROOT / 'windows.json').write_text(json.dumps(windows))
         run([code, '--install-extension', str(extension_file), '--force'], env=env)
         CONFIG.write_text(updated)
+        for path, text in shell_updates.items():
+            path.write_text(text)
         SERVICE.parent.mkdir(parents=True, exist_ok=True)
         quote = lambda value: json.dumps(str(value).replace('%', '%%'))
         SERVICE.write_text('[Unit]\nDescription=Codex completion notifications and existing terminal focus\n\n'
@@ -185,6 +220,11 @@ def install(args):
         except Exception as error:
             rollback_errors.append('Windows rollback: ' + str(error))
         try:
+            for path, text in shell_originals.items():
+                if text is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_text(text)
             subprocess.run(['systemctl', '--user', 'disable', '--now', UNIT], capture_output=True)
             if ROOT.exists():
                 ROOT.rename(backup / 'failed-runtime')
@@ -210,7 +250,7 @@ def install(args):
             print(error, file=sys.stderr)
         raise
     print('Installed Codex Session Notifications', VERSION)
-    print('For multiple terminals, launch with: python3 ' + str(ROOT / 'launch.py'))
+    print('Automatic routing installed. Open a new terminal and use codex normally.')
     print('If no terminal window records appear, run Developer: Reload Window once in each VS Code WSL window.')
 
 
@@ -254,6 +294,10 @@ def uninstall(args):
     run([code, '--uninstall-extension', EXTENSION], env=env)
     ps_script((HERE / 'windows/uninstall.ps1').read_text(), {'id': hashlib.sha256((os.environ['WSL_DISTRO_NAME'] + '\0' + getpass.getuser()).encode()).hexdigest()})
     CONFIG.write_text(updated)
+    for name in ('.bashrc', '.zshrc'):
+        path = Path.home() / name
+        if path.exists():
+            path.write_text(shell_config(path.read_text(), 'bash', remove=True))
     SERVICE.unlink(missing_ok=True)
     run(['systemctl', '--user', 'daemon-reload'])
     state_file.rename(ROOT / ('install-state.removed-' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.json'))
